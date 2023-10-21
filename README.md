@@ -1,2 +1,2 @@
-# love
-hihi
+# Some examples for exercise
+
