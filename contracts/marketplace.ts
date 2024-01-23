@@ -129,7 +129,6 @@ export function changeMarketplaceFee(binaryArgs: StaticArray<u8>): void {
 export function createNftCollection(args: StaticArray<u8>): void {
   const nft_contract_code = Storage.get(nftContractCodeKey);
   const addr = createSC(nft_contract_code);
-  call(addr, 'constructor', new Args(args), 1 * ONE_UNIT);
 
   generateEvent(`NFT created at ${addr.toString()}`);
   generateEvent(`CREATE: ${Context.caller().toString()}`);
