@@ -21,6 +21,8 @@ import {
   totalSupplyKey,
 } from './NFT';
 
+export const mintPriceKey = 'mintPrice';
+
 /**
  * Initialize all the properties of the NFT (contract Owner, counter to 0...)
  *
@@ -45,6 +47,9 @@ export function _constructor(args: Args): void {
   const baseURI = args
     .nextString()
     .expect('baseURI argument is missing or invalid');
+  const mintPrice = args
+    .nextU64()
+    .expect('mintPrice argument is missing or invalid');
 
   Storage.set(nameKey, name);
   Storage.set(symbolKey, symbol);
@@ -52,6 +57,7 @@ export function _constructor(args: Args): void {
   Storage.set(baseURIKey, baseURI);
   Storage.set(ownerKey, Context.caller().toString());
   Storage.set(counterKey, u64ToBytes(initCounter));
+  Storage.set(stringToBytes(mintPriceKey), u64ToBytes(mintPrice));
 }
 
 /**
