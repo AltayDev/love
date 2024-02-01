@@ -14,7 +14,6 @@ import {
   Address,
   Context,
   Storage,
-  balance,
   call,
   generateEvent,
   transferCoins,
@@ -120,7 +119,7 @@ export function changeMarketplaceOwner(binaryArgs: StaticArray<u8>): void {
   Storage.set(ownerKey, newAdmin);
 }
 
-export function SCCoinsToAddress(binaryArgs: StaticArray<u8>): void {
+export function sendCoinsFromSC(binaryArgs: StaticArray<u8>): void {
   assert(_onlyOwner(), 'The caller is not the owner of the contract');
   const args = new Args(binaryArgs);
   const address = args.nextString().unwrap();
