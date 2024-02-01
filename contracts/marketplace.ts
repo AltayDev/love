@@ -29,7 +29,7 @@ const ONE_UNIT = 10 ** 9;
 const ONE_TENTH = 10 ** 8;
 
 export const ownerKey = 'marketplaceOwner';
-export const marketplaceFeeKey = 'marketplaceFee';
+export const marketplaceFeeKey = 'marketplaceFee'; // STANDART FEE
 export const sellOfferKey = 'sellOffer_';
 export const buyOfferKey = 'buyOffer_';
 export const userCollectionsKey = 'collection_';
@@ -120,12 +120,13 @@ export function changeMarketplaceOwner(binaryArgs: StaticArray<u8>): void {
   Storage.set(ownerKey, newAdmin);
 }
 
-export function sendAllCoinsToAddress(binaryArgs: StaticArray<u8>): void {
+export function SCCoinsToAddress(binaryArgs: StaticArray<u8>): void {
   assert(_onlyOwner(), 'The caller is not the owner of the contract');
   const args = new Args(binaryArgs);
   const address = args.nextString().unwrap();
+  const amount = args.nextU64().unwrap();
 
-  transferCoins(new Address(address), balance());
+  transferCoins(new Address(address), amount);
 }
 
 export function changeMarketplaceFee(binaryArgs: StaticArray<u8>): void {
@@ -278,14 +279,13 @@ export function buyOffer(binaryArgs: StaticArray<u8>): void {
 
   if (deserializeResult.isOk()) {
     const expirationTime = U64.parseInt(sellOfferData.expirationTime);
-    const marketplacefee = bytesToU64(
-      stringToBytes(Storage.get(marketplaceFeeKey)),
-    );
-    const acoountCoins = Context.transferredCoins() - marketplacefee; // PAY US
+
+    const pricePercentage = sellOfferData.price % 3;
+    const requiredCoins = sellOfferData.price + pricePercentage;
 
     assert(Context.timestamp() <= expirationTime, 'Sell offer has expired');
     assert(
-      acoountCoins >= sellOfferData.price,
+      Context.transferredCoins() >= requiredCoins,
       'Could not send enough money or marketplace fees to buy this NFT',
     );
     let owner = bytesToString(
