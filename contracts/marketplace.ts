@@ -1,7 +1,7 @@
 /**
  * AltaiLabs
- * Purrfect Marketplace
- * Version: 0.1.0
+ * Marketplace
+ * Version: 0.2.0
  * */
 import { Args, bytesToString, stringToBytes } from '@massalabs/as-types';
 import {
@@ -55,7 +55,7 @@ function weHaveCollection(scAddr: string): bool {
   return Storage.has(key);
 }
 
-export function addCollection(binaryArgs: StaticArray<u8>): void {
+export function adminAddCollection(binaryArgs: StaticArray<u8>): void {
   assert(_onlyOwner(), 'The caller is not the owner of the contract');
   const args = new Args(binaryArgs);
   const collectioName = args.nextString().expect('');
@@ -86,7 +86,7 @@ export function addCollection(binaryArgs: StaticArray<u8>): void {
   generateEvent('Collection ' + collectionAddress + ' is added');
 }
 
-export function dellCollection(binaryArgs: StaticArray<u8>): void {
+export function adminDellCollection(binaryArgs: StaticArray<u8>): void {
   assert(_onlyOwner(), 'The caller is not the owner of the contract');
   const args = new Args(binaryArgs);
   const collectionSCAddress = args.nextString().expect('');
@@ -94,14 +94,14 @@ export function dellCollection(binaryArgs: StaticArray<u8>): void {
   Storage.del(stringToBytes(key));
 }
 
-export function changeMarketplaceOwner(binaryArgs: StaticArray<u8>): void {
+export function adminChangeMarketplaceOwner(binaryArgs: StaticArray<u8>): void {
   assert(_onlyOwner(), 'The caller is not the owner of the contract');
   const args = new Args(binaryArgs);
   const newAdmin = args.nextString().unwrap();
   Storage.set(ownerKey, newAdmin);
 }
 
-export function sendCoinsFromSC(binaryArgs: StaticArray<u8>): void {
+export function adminSendCoinsFrom(binaryArgs: StaticArray<u8>): void {
   assert(_onlyOwner(), 'The caller is not the owner of the contract');
   const args = new Args(binaryArgs);
   const address = args.nextString().unwrap();
@@ -110,6 +110,14 @@ export function sendCoinsFromSC(binaryArgs: StaticArray<u8>): void {
   transferCoins(new Address(address), amount);
 }
 
+export function adminDeleteOffer(binaryArgs: StaticArray<u8>): void {
+  assert(_onlyOwner(), 'The caller is not the owner of the contract');
+  const args = new Args(binaryArgs);
+  const collectionAddress = args.nextString().unwrap();
+  const nftTokenId = args.nextU64().unwrap();
+  const key = sellOfferKey + collectionAddress + '_' + nftTokenId.toString();
+  Storage.del(stringToBytes(key));
+}
 /**
  * @returns sell offer in marketplace
  */
@@ -257,7 +265,7 @@ export function buyOffer(binaryArgs: StaticArray<u8>): void {
     new Args().add(owner).add(address).add(nftTokenId),
     100000000, //change this fee later
   );
-  const pricePercentage = sellOfferData.price % 3;
+  const pricePercentage = (sellOfferData.price / 100) * 3;
   const remainingCoins = sellOfferData.price - pricePercentage;
 
   transferCoins(new Address(owner), remainingCoins);
@@ -265,6 +273,6 @@ export function buyOffer(binaryArgs: StaticArray<u8>): void {
     `${Context.caller().toString()} bought this ${nftTokenId.toString()} NFT at this ${sellOfferData.price.toString()} price`,
   );
 
-  //Delete seller offer key
+  //Delete sell offer key
   Storage.del(stringToBytes(key));
 }
