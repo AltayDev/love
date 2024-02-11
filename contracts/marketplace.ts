@@ -1,7 +1,7 @@
 /**
  * AltaiLabs
  * Marketplace
- * Version: 0.2.0
+ * Version: 0.4.0
  * */
 import { Args, bytesToString, stringToBytes } from '@massalabs/as-types';
 import {
@@ -10,6 +10,7 @@ import {
   Storage,
   call,
   generateEvent,
+  sendMessage,
   transferCoins,
 } from '@massalabs/massa-as-sdk';
 import { SellOffer, CollectionDetail } from '../utilities/marketplace-complex';
@@ -18,6 +19,11 @@ export const ownerKey = 'marketplaceOwner';
 export const sellOfferKey = 'sellOffer_';
 export const buyOfferKey = 'buyOffer_';
 export const userCollectionsKey = 'collection_';
+
+//for asc
+export const genesisTimestamp = 1704289800000; //buildnet
+export const t0 = 16000;
+export const thread_count = 32;
 
 /**
  * This function is meant to be called only one time: when the contract is deployed.
@@ -37,7 +43,6 @@ export function constructor(binaryArgs: StaticArray<u8>): void {
     .expect('marketplaceOwner argument is missing or invalid');
 
   Storage.set(ownerKey, marketplaceOwner);
-  generateEvent('Nova Marketplace SC Deployed');
 }
 
 /**
@@ -50,9 +55,27 @@ function _onlyOwner(): bool {
 /**
  * @returns true if the collection is available
  */
-function weHaveCollection(scAddr: string): bool {
-  const key = userCollectionsKey + scAddr;
+function weHaveCollection(collectionAddress: string): bool {
+  const key = userCollectionsKey + collectionAddress;
   return Storage.has(key);
+}
+
+/**
+ * @returns Remove Sell offer autonomously when it expires
+ */
+export function autonomousDelOffer(binaryArgs: StaticArray<u8>): void {
+  const args = new Args(binaryArgs);
+  const collectionAddress = args.nextString().expect('');
+  const tokenID = args.nextU64().expect('');
+
+  const caller = Context.caller().toString();
+  assert(caller == Context.callee().toString(), 'you are not the SC');
+
+  const key = sellOfferKey + collectionAddress + '_' + tokenID.toString();
+  const check = Storage.has(key);
+  assert(check, 'sell offer not found');
+
+  Storage.del(stringToBytes(key));
 }
 
 export function adminAddCollection(binaryArgs: StaticArray<u8>): void {
@@ -83,7 +106,6 @@ export function adminAddCollection(binaryArgs: StaticArray<u8>): void {
     marketplaceMintingEvent,
   );
   Storage.set(stringToBytes(key), collection.serialize());
-  generateEvent('Collection ' + collectionAddress + ' is added');
 }
 
 export function adminDellCollection(binaryArgs: StaticArray<u8>): void {
@@ -118,6 +140,7 @@ export function adminDeleteOffer(binaryArgs: StaticArray<u8>): void {
   const key = sellOfferKey + collectionAddress + '_' + nftTokenId.toString();
   Storage.del(stringToBytes(key));
 }
+
 /**
  * @returns sell offer in marketplace
  */
@@ -179,7 +202,33 @@ export function sellOffer(binaryArgs: StaticArray<u8>): void {
   );
 
   Storage.set(stringToBytes(key), newSellOffer.serialize());
-  generateEvent('SELL_OFFER : ' + creatorAddress);
+
+  //send ASC Message for delete when time is up
+  const startPeriod = floor((expirationTime - genesisTimestamp) / t0);
+  const startThread = floor(
+    (expirationTime - genesisTimestamp - startPeriod * t0) /
+      (t0 / thread_count),
+  ) as u8;
+  const endPeriod = startPeriod + 10;
+  const endThread = 31 as u8;
+
+  const maxGas = 500_000_000; // gas for smart contract execution
+  const rawFee = 0;
+  const coins = 0;
+
+  const scaddr = Context.callee();
+  sendMessage(
+    scaddr,
+    'autonomousDelOffer',
+    startPeriod,
+    startThread,
+    endPeriod,
+    endThread,
+    maxGas,
+    rawFee,
+    coins,
+    new Args().add(collectionAddress).add(nftTokenId).serialize(),
+  );
 }
 
 /**
