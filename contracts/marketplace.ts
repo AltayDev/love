@@ -55,7 +55,7 @@ function _onlyOwner(): bool {
 /**
  * @returns true if the collection is available
  */
-function weHaveCollection(collectionAddress: string): bool {
+function _weHaveCollection(collectionAddress: string): bool {
   const key = userCollectionsKey + collectionAddress;
   return Storage.has(key);
 }
@@ -81,29 +81,23 @@ export function autonomousDelOffer(binaryArgs: StaticArray<u8>): void {
 export function adminAddCollection(binaryArgs: StaticArray<u8>): void {
   assert(_onlyOwner(), 'The caller is not the owner of the contract');
   const args = new Args(binaryArgs);
-  const collectioName = args.nextString().expect('');
+  const collectionName = args.nextString().expect('');
+  const collectionDesc = args.nextString().expect('');
   const collectionAddress = args.nextString().expect('');
   const collectionWebsite = args.nextString().expect('');
   const bannerImage = args.nextString().expect('');
   const collectionBackgroundImage = args.nextString().expect('');
   const collectionLogoImage = args.nextString().expect('');
-  const collectionBaseURI = args.nextString().expect('');
-  const collectionMintPrice = args.nextU64().expect('');
-  const extraMetadata = args.nextString().expect('');
-  const marketplaceMintingEvent = args.nextString().expect('');
 
   const key = userCollectionsKey + collectionAddress;
   const collection = new CollectionDetail(
-    collectioName,
+    collectionName,
+    collectionDesc,
     collectionAddress,
     collectionWebsite,
     bannerImage,
     collectionBackgroundImage,
     collectionLogoImage,
-    collectionBaseURI,
-    collectionMintPrice,
-    extraMetadata,
-    marketplaceMintingEvent,
   );
   Storage.set(stringToBytes(key), collection.serialize());
 }
@@ -148,7 +142,7 @@ export function sellOffer(binaryArgs: StaticArray<u8>): void {
   //args
   const args = new Args(binaryArgs);
   const collectionAddress = args.nextString().unwrap();
-  const nftTokenId = args.nextU64().unwrap();
+  const nftTokenId = args.nextU256().unwrap();
   const price = args.nextU64().unwrap();
   const expireIn = args.nextU64().unwrap();
 
@@ -158,7 +152,7 @@ export function sellOffer(binaryArgs: StaticArray<u8>): void {
   const createdTime = Context.timestamp();
 
   assert(
-    weHaveCollection(collectionAddress),
+    _weHaveCollection(collectionAddress),
     'Collection not found in marketplace',
   );
   const key = sellOfferKey + collectionAddress + '_' + nftTokenId.toString();
@@ -167,7 +161,7 @@ export function sellOffer(binaryArgs: StaticArray<u8>): void {
   const owner = bytesToString(
     call(
       new Address(collectionAddress),
-      'nft1_ownerOf',
+      'ownerOf',
       new Args().add(nftTokenId),
       0,
     ),
@@ -183,7 +177,7 @@ export function sellOffer(binaryArgs: StaticArray<u8>): void {
   const approved = bytesToString(
     call(
       new Address(collectionAddress),
-      'nft1_getApproved',
+      'getApproved',
       new Args().add(nftTokenId),
       0,
     ),
@@ -237,9 +231,9 @@ export function sellOffer(binaryArgs: StaticArray<u8>): void {
 export function removeSellOffer(binaryArgs: StaticArray<u8>): void {
   const args = new Args(binaryArgs);
   const collectionAddress = args.nextString().unwrap();
-  const nftTokenId = args.nextU64().unwrap();
+  const nftTokenId = args.nextU256().unwrap();
   assert(
-    weHaveCollection(collectionAddress),
+    _weHaveCollection(collectionAddress),
     'Collection not found in marketplace',
   );
   const key = sellOfferKey + collectionAddress + '_' + nftTokenId.toString();
@@ -259,7 +253,7 @@ export function removeSellOffer(binaryArgs: StaticArray<u8>): void {
   let owner = bytesToString(
     call(
       new Address(collectionAddress),
-      'nft1_ownerOf',
+      'ownerOf',
       new Args().add(nftTokenId),
       0,
     ),
@@ -275,10 +269,10 @@ export function removeSellOffer(binaryArgs: StaticArray<u8>): void {
 export function buyOffer(binaryArgs: StaticArray<u8>): void {
   const args = new Args(binaryArgs);
   const collectionAddress = args.nextString().unwrap();
-  const nftTokenId = args.nextU64().unwrap();
+  const nftTokenId = args.nextU256().unwrap();
 
   assert(
-    weHaveCollection(collectionAddress),
+    _weHaveCollection(collectionAddress),
     'Collection not found in marketplace',
   );
   const key = sellOfferKey + collectionAddress + '_' + nftTokenId.toString();
@@ -301,7 +295,7 @@ export function buyOffer(binaryArgs: StaticArray<u8>): void {
   let owner = bytesToString(
     call(
       new Address(collectionAddress),
-      'nft1_ownerOf',
+      'ownerOf',
       new Args().add(nftTokenId),
       0,
     ),
@@ -310,11 +304,11 @@ export function buyOffer(binaryArgs: StaticArray<u8>): void {
 
   call(
     new Address(collectionAddress),
-    'nft1_transferFrom',
+    'safeTransferFrom',
     new Args().add(owner).add(address).add(nftTokenId),
     100000000, //change this fee later
   );
-  const pricePercentage = (sellOfferData.price / 100) * 3;
+  const pricePercentage = (sellOfferData.price / 100) * 2;
   const remainingCoins = sellOfferData.price - pricePercentage;
 
   transferCoins(new Address(owner), remainingCoins);
