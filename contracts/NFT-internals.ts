@@ -67,7 +67,7 @@ function operatorAllowanceKey(
 ): StaticArray<u8> {
   return stringToBytes(
     OPERATOR_ALLOWANCE_KEY_PREFIX +
-    owner.toString().concat(operator.toString()),
+      owner.toString().concat(operator.toString()),
   );
 }
 
@@ -206,7 +206,6 @@ export function _update(to: Address, tokenId: u256, auth: Address): void {
   if (from != new Address()) {
     // clear the approval
     _approve(new Address(), tokenId);
-
     // update the balance of the from
     const fromBalance = bytesToU256(Storage.get(balanceKey(from)));
     Storage.set(balanceKey(from), u256ToBytes(fromBalance - u256.One));
