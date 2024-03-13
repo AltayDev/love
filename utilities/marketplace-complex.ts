@@ -5,33 +5,22 @@ Marketplace - Complex Class - Sell Offer - Buy Operation
 
 import { Serializable, Result, Args } from '@massalabs/as-types';
 
-export class CollectionDetail implements Serializable {
+export class ItemDetail implements Serializable {
   constructor(
     public name: string = '',
+    public symbol: string = '',
     public address: string = '',
-    public externalWebsite: string = '',
-    public bannerImage: string = '',
-    public backgroundImage: string = '',
-    public collectionLogoImage: string = '',
-    public collectionBaseURI: string = '',
-    public collectionMintPrice: u64 = 0,
-    public extraMetadata: string = '',
-    public marketplaceMinting: string = '',
+    public baseURI: string = '',
   ) {}
 
   serialize(): StaticArray<u8> {
     const args = new Args();
 
     args.add<string>(this.name);
+    args.add<string>(this.symbol);
     args.add<string>(this.address);
-    args.add<string>(this.externalWebsite);
-    args.add<string>(this.bannerImage);
-    args.add<string>(this.backgroundImage);
-    args.add<string>(this.collectionLogoImage);
-    args.add<string>(this.collectionBaseURI);
-    args.add<u64>(this.collectionMintPrice);
-    args.add<string>(this.extraMetadata);
-    args.add<string>(this.marketplaceMinting);
+    args.add<string>(this.baseURI);
+
     return args.serialize();
   }
 
@@ -41,6 +30,57 @@ export class CollectionDetail implements Serializable {
     const nameResult = args.nextString();
     if (nameResult.isErr()) return new Result(0);
     this.name = nameResult.unwrap();
+
+    const symbolResult = args.nextString();
+    if (symbolResult.isErr()) return new Result(0);
+    this.symbol = symbolResult.unwrap();
+
+    const addressResult = args.nextString();
+    if (addressResult.isErr()) return new Result(0);
+    this.address = addressResult.unwrap();
+
+    const baseURIResult = args.nextString();
+    if (baseURIResult.isErr()) return new Result(0);
+    this.baseURI = baseURIResult.unwrap();
+
+    return new Result(args.offset);
+  }
+}
+
+export class CollectionDetail implements Serializable {
+  constructor(
+    public name: string = '',
+    public desc: string = '',
+    public address: string = '',
+    public externalWebsite: string = '',
+    public bannerImage: string = '',
+    public backgroundImage: string = '',
+    public collectionLogoImage: string = '',
+  ) {}
+
+  serialize(): StaticArray<u8> {
+    const args = new Args();
+
+    args.add<string>(this.name);
+    args.add<string>(this.desc);
+    args.add<string>(this.address);
+    args.add<string>(this.externalWebsite);
+    args.add<string>(this.bannerImage);
+    args.add<string>(this.backgroundImage);
+    args.add<string>(this.collectionLogoImage);
+    return args.serialize();
+  }
+
+  deserialize(data: StaticArray<u8>, offset: i32): Result<i32> {
+    const args = new Args(data, offset);
+
+    const nameResult = args.nextString();
+    if (nameResult.isErr()) return new Result(0);
+    this.name = nameResult.unwrap();
+
+    const descResult = args.nextString();
+    if (descResult.isErr()) return new Result(0);
+    this.desc = descResult.unwrap();
 
     const addressResult = args.nextString();
     if (addressResult.isErr()) return new Result(0);
@@ -61,22 +101,6 @@ export class CollectionDetail implements Serializable {
     const collectionLogoImageResult = args.nextString();
     if (collectionLogoImageResult.isErr()) return new Result(0);
     this.collectionLogoImage = collectionLogoImageResult.unwrap();
-
-    const collectionBaseURIResult = args.nextString();
-    if (collectionBaseURIResult.isErr()) return new Result(0);
-    this.collectionBaseURI = collectionBaseURIResult.unwrap();
-
-    const collectionMintPriceResult = args.nextU64();
-    if (collectionMintPriceResult.isErr()) return new Result(0);
-    this.collectionMintPrice = collectionMintPriceResult.unwrap();
-
-    const extraMetadataResult = args.nextString();
-    if (extraMetadataResult.isErr()) return new Result(0);
-    this.extraMetadata = extraMetadataResult.unwrap();
-
-    const marketplaceMintingResult = args.nextString();
-    if (marketplaceMintingResult.isErr()) return new Result(0);
-    this.marketplaceMinting = marketplaceMintingResult.unwrap();
 
     return new Result(args.offset);
   }
