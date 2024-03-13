@@ -29,8 +29,8 @@ import {
   _symbol,
   _update,
   _transferFrom,
-} from './NFT-internals';
-import { setOwner, onlyOwner } from '../utilities/ownership';
+} from './NFT-internals'; // FROM https://github.com/massalabs/massa-standards/blob/main/smart-contracts/assembly/contracts/NFT/NFT-internals.ts 
+import { setOwner, onlyOwner } from '../utils/ownership'; // FROM https://github.com/massalabs/massa-standards/tree/main/smart-contracts/assembly/contracts/utils
 
 import { Context, isDeployingContract, Storage } from '@massalabs/massa-as-sdk';
 
