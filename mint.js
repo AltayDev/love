@@ -3,6 +3,9 @@ const {
   WalletClient,
   DefaultProviderUrls,
   CHAIN_ID,
+  Args,
+  fromMAS,
+  MAX_GAS_CALL
 } = require("@massalabs/massa-web3");
 
 const secretKey = "YOUR SECRET KEY ( CONTRACT OWNER )";
