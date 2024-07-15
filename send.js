@@ -18,7 +18,7 @@ const handleTransferPUR = async (amount, to) => {
         fee: fromMAS(0.01),
         maxGas: MAX_GAS_CALL,
         coins: fromMAS(0),
-        targetAddress: sc,
+        targetAddress: "AS133eqPPaPttJ6hJnk3sfoG5cjFFqBDi1VGxdo2wzWkq8AfZnan",
         functionName: "transfer",
         parameter: args,
       });
