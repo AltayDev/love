@@ -52,7 +52,8 @@ export function constructor(binaryArgs: StaticArray<u8>): void {
     .nextString()
     .expect('symbol argument is missing or invalid');
   _constructor(name, symbol);
-  setOwner(new Args().add(Context.caller().toString()).serialize());
+  const owner = args.nextString().expect('owner is required');
+  setOwner(new Args().add(owner).serialize());
   const baseURI = args
     .nextString()
     .expect('baseURI argument is missing or invalid');
@@ -251,11 +252,4 @@ export function internalCoinTransfer(binaryArgs: StaticArray<u8>): void {
   const amount = args.nextU64().expect('target amount not entered.');
 
   transferCoins(new Address(targetAddress), amount);
-}
-
-export function changeSCOwner(binaryArgs: StaticArray<u8>): void {
-  onlyOwner();
-  const args = new Args(binaryArgs);
-  const newOwner = args.nextString().expect('new owner is not entered.');
-  setOwner(new Args().add(newOwner).serialize());
 }
