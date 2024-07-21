@@ -1,21 +1,10 @@
-/**
- *
- * This is an example of an NFT contract that uses the NFT-internals
- * helper functions to implement the ERC721 standard.
- *
- * This files does basically two things:
- * 1. It wraps the NFT-internals functions, manages the deserialize/serialize of the arguments and return values,
- *    and exposes them to the outside world.
- * 2. It implements some custom features that are not part of the ERC721 standard, like mint, burn or ownership.
- *
- * The NFT-internals functions are not supposed to be re-exported by this file.
- */
-
 import {
   Args,
   boolToByte,
   stringToBytes,
   u256ToBytes,
+  bytesToString,
+  bytesToU256,
 } from '@massalabs/as-types';
 import {
   _approve,
@@ -29,12 +18,21 @@ import {
   _symbol,
   _update,
   _transferFrom,
-} from './NFT-internals'; // FROM https://github.com/massalabs/massa-standards/blob/main/smart-contracts/assembly/contracts/NFT/NFT-internals.ts 
-import { setOwner, onlyOwner } from '../utils/ownership'; // FROM https://github.com/massalabs/massa-standards/tree/main/smart-contracts/assembly/contracts/utils
-
-import { Context, isDeployingContract, Storage } from '@massalabs/massa-as-sdk';
+  _transfer,
+} from './NFT-internals';
+import { setOwner, onlyOwner } from '../utilities/ownership';
+import {
+  Storage,
+  generateEvent,
+  transferCoins,
+  Address,
+} from '@massalabs/massa-as-sdk';
+import { Context, isDeployingContract } from '@massalabs/massa-as-sdk';
+import { u256 } from 'as-bignum/assembly';
 
 export const BASE_URI_KEY = stringToBytes('BASE_URI');
+export const MAX_SUPPLY_KEY = stringToBytes('MAX_SUPPLY');
+export const COUNTER_KEY = stringToBytes('COUNTER');
 
 /**
  * @param binaryArgs - serialized strings representing the name and the symbol of the NFT
@@ -53,16 +51,20 @@ export function constructor(binaryArgs: StaticArray<u8>): void {
   const symbol = args
     .nextString()
     .expect('symbol argument is missing or invalid');
+  _constructor(name, symbol);
+  setOwner(new Args().add(Context.caller().toString()).serialize());
   const baseURI = args
     .nextString()
     .expect('baseURI argument is missing or invalid');
-  const ownerAddress = args
-    .nextString()
-    .expect('ownerAddress argument is missing or invalid');
+  const maxSupply = args
+    .nextU256()
+    .expect('totalSupply argument is missing or invalid');
 
-  _constructor(name, symbol);
   Storage.set(BASE_URI_KEY, stringToBytes(baseURI));
-  setOwner(new Args().add(ownerAddress).serialize());
+  Storage.set(MAX_SUPPLY_KEY, u256ToBytes(maxSupply));
+  Storage.set(COUNTER_KEY, u256ToBytes(u256.Zero));
+
+  generateEvent('COLLECTION IS DEPLOYED');
 }
 
 export function name(): string {
@@ -73,6 +75,33 @@ export function symbol(): string {
   return _symbol();
 }
 
+export function baseURI(
+  _: StaticArray<u8> = new StaticArray<u8>(0),
+): StaticArray<u8> {
+  return Storage.get(BASE_URI_KEY);
+}
+
+export function tokenURI(_args: StaticArray<u8>): StaticArray<u8> {
+  const args = new Args(_args);
+  const tokenId = args
+    .nextU256()
+    .expect('token id argument is missing or invalid')
+    .toString();
+
+  const uri = bytesToString(Storage.get(BASE_URI_KEY));
+  const key = uri + tokenId;
+  return stringToBytes(key);
+}
+
+export function setBaseURI(_args: StaticArray<u8>): void {
+  onlyOwner();
+  const args = new Args(_args);
+  const newBaseURI = args
+    .nextString()
+    .expect('tokenUri argument is missing or invalid');
+
+  Storage.set(BASE_URI_KEY, stringToBytes(newBaseURI));
+}
 /**
  *
  * @param binaryArgs - serialized string representing the address whose balance we want to check
@@ -180,57 +209,53 @@ export function transferFrom(binaryArgs: StaticArray<u8>): void {
   _transferFrom(from, to, tokenId);
 }
 
-/**
- *
- * @param binaryArgs - serialized arguments representing the address of the recipient and the tokenId to mint
- *
- * @remarks This function is only callable by the owner of the contract.
- *
- * This function is not part of the ERC721 standard.
- * It serves as an example of how to use the NFT-internals functions to implement custom features.
- * Here we make use of the _update function from the NFT-internals to mint a new token.
- * Indeed, by calling _update with a non-existing tokenId, we are creating a new token.
- *
- * We also make sure that the mint feature is only callable by the owner of the contract
- * by using the onlyOwner modifier.
- *
- */
-export function mint(binaryArgs: StaticArray<u8>): void {
-  onlyOwner();
+export function transfer(binaryArgs: StaticArray<u8>): void {
   const args = new Args(binaryArgs);
   const to = args.nextString().expect('to argument is missing or invalid');
   const tokenId = args
     .nextU256()
     .expect('tokenId argument is missing or invalid');
-  _update(to, tokenId, '');
+  _transfer(to, tokenId);
+}
+
+export function currentSupply(
+  _: StaticArray<u8> = new StaticArray<u8>(0),
+): StaticArray<u8> {
+  return Storage.get(COUNTER_KEY);
 }
 
 /**
  *
- * @param binaryArgs - serialized u256 representing the tokenId to burn
- *
- * @remarks This function is not part of the ERC721 standard.
- * It serves as an example of how to use the NFT-internals functions to implement custom features.
- * Here we make use of the _update function from the NFT-internals to burn a token.
- * Indeed, by calling _update with the zero address as a recipient, we are burning the token.
- *
- * We also made sure that the burn feature is only callable by the owner of the token or an approved operator.
- * Indeed, the _update function will check if the caller is the owner of the token or an approved operator.
+ * @param binaryArgs - serialized arguments representing the address of the recipient and the tokenId to mint
  *
  */
-export function burn(binaryArgs: StaticArray<u8>): void {
+export function mint(binaryArgs: StaticArray<u8>): void {
+  onlyOwner();
+  // check max supply
+  const maxSupply = bytesToU256(Storage.get(MAX_SUPPLY_KEY));
+  assert(maxSupply > bytesToU256(currentSupply()), 'Max supply reached');
+
+  //mint next one
+  const args = new Args(binaryArgs);
+  const to = args.nextString().expect('please enter the target address.');
+  const increment = bytesToU256(currentSupply()) + u256.One;
+
+  Storage.set(COUNTER_KEY, u256ToBytes(increment));
+  _update(to, increment, '');
+}
+
+export function internalCoinTransfer(binaryArgs: StaticArray<u8>): void {
   onlyOwner();
   const args = new Args(binaryArgs);
-  const tokenId = args
-    .nextU256()
-    .expect('tokenId argument is missing or invalid');
-  _update('', tokenId, '');
+  const targetAddress = args.nextString().expect('target address not entered.');
+  const amount = args.nextU64().expect('target amount not entered.');
+
+  transferCoins(new Address(targetAddress), amount);
 }
 
-/**
- * Here we re-export the ownerAddress function from the ownership file.
- * This will allow the outside world to check the owner of the contract.
- * However we do not re-export any function from the NFT-internals file.
- * This is because the NFT-internals functions are not supposed to be called directly by the outside world.
- */
-export { ownerAddress } from '../utilities/ownership';
+export function changeSCOwner(binaryArgs: StaticArray<u8>): void {
+  onlyOwner();
+  const args = new Args(binaryArgs);
+  const newOwner = args.nextString().expect('new owner is not entered.');
+  setOwner(new Args().add(newOwner).serialize());
+}
